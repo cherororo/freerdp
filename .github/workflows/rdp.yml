@@ -6,16 +6,38 @@ jobs:
   build:
     runs-on: windows-latest
     steps:
-      - name: Download ngrok
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Setup ngrok and Authenticate
         run: |
+          # Download and unzip ngrok
           Invoke-WebRequest https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-stable-windows-amd64.zip -OutFile ngrok.zip
           Expand-Archive ngrok.zip
-          ./ngrok.exe authtoken 2kxqJnwKJ9mEOfL5Edtz8qlXzrF_7dKVfhZZe9AjPxFy1ogL
+          
+          # Authenticate ngrok using the secret
+          ./ngrok.exe authtoken "${{ secrets.NGROK_AUTH_TOKEN }}"
+        shell: powershell
 
-      - name: Enable RDP
+      - name: Enable RDP and Start ngrok Tunnel
         run: |
+          # Create user and add to administrators group
           net user kamel123 MyStrong123 /add
           net localgroup administrators kamel123 /add
+          
+          # Enable RDP connections
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name 'fDenyTSConnections' -Value 0
           Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
-          ./ngrok.exe tcp 3389
+          
+          # Start ngrok tunnel in the background
+          Start-Process ./ngrok.exe -ArgumentList "tcp 3389 --log=stdout"
+        shell: powershell
+
+      - name: Keep Runner Alive
+        run: |
+          # This step keeps the runner alive for you to connect.
+          # The job will automatically cancel after about 6 hours.
+          # You can manually cancel it from the GitHub Actions page when you're done.
+          Write-Host "Runner is active. Find the RDP address in the 'Enable RDP and Start ngrok Tunnel' step's log."
+          Start-Sleep -Seconds 21000 # Keep alive for about 5.8 hours
+        shell: powershell
